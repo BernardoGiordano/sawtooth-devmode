@@ -7,6 +7,35 @@ use crate::state::{PhaseQueenState, PhaseQueenPhase};
 use rand;
 use rand::Rng;
 
+use reqwest;
+
+#[derive(Serialize, Deserialize)]
+pub struct LogMessage {
+    pub seq_num: u64,
+    pub n_messages: u64,
+    pub n_members: u64,
+    pub elapsed_time: u128,
+    pub block_id: String,
+    pub alfa: u64,
+    pub beta: u64,
+    pub k: u64
+}
+
+impl LogMessage {
+    pub fn new() -> LogMessage {
+        LogMessage {
+            seq_num: 0,
+            n_messages: 0,
+            n_members: 0,
+            elapsed_time: 0,
+            block_id: String::new(),
+            alfa: 0,
+            beta: 0,
+            k: 0
+        }
+    }
+}
+
 /// Contains the core logic of the PhaseQueen node
 pub struct PhaseQueenNode {
     /// Used for interactions with the validator
@@ -87,6 +116,9 @@ impl PhaseQueenNode {
                 self.rng.gen_range(0, 255)  // some random values
             ])
             .expect("Failed to broadcast value");
+        for _ in 0..state.member_ids.len() {
+            state.set_message_sent();
+        }
 
         self.on_peer_message(message, v, state);
     }
@@ -115,6 +147,8 @@ impl PhaseQueenNode {
             );
             return true;
         }
+
+        state.set_block_new_timestamp(block.block_id.clone());
 
         self.service
             .check_blocks(vec![block.block_id.clone()])
@@ -247,6 +281,19 @@ impl PhaseQueenNode {
             //     self.cancel_block();
             // }
         }
+
+        let elapsed = state.set_block_commit_timestamp(state.decision_block.clone());
+
+        let mut log_message = LogMessage::new();
+        log_message.block_id = hex::encode(state.decision_block.clone());
+        log_message.n_messages = state.measurements.n_messaggi_inviati;
+        log_message.elapsed_time = elapsed;
+        log_message.n_members = state.member_ids.len() as u64;
+        log_message.seq_num = state.seq_num;
+        let client = reqwest::Client::new();
+        client.post("http://log.collector:5000/collect")
+            .json(&serde_json::to_string(&log_message).unwrap())
+            .send();
 
         state.k = 0;
         state.queen_buffer = [0, 0];

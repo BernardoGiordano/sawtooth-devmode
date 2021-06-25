@@ -1,12 +1,28 @@
 use std::fmt;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use sawtooth_sdk::consensus::engine::{BlockId, PeerId};
+use std::collections::{HashMap};
 
-use crate::timing::Timeout;
 use crate::config::PhaseQueenConfig;
 
-/// Phases of the PBFT algorithm, in `Normal` mode
+#[derive(Debug, Serialize, Deserialize)]
+pub struct Measurements {
+    pub convergenza: HashMap<BlockId, u128>,
+
+    pub n_messaggi_inviati: u64,
+}
+
+impl Measurements {
+    pub fn new() -> Self {
+        Measurements {
+            convergenza: HashMap::new(),
+            n_messaggi_inviati: 0
+        }
+    }
+}
+
+/// Phases of the PhaseQueen algorithm
 #[derive(Debug, PartialEq, PartialOrd, Clone, Serialize, Deserialize)]
 pub enum PhaseQueenPhase {
     Idle,
@@ -85,6 +101,9 @@ pub struct PhaseQueenState {
 
     /// The maximum time for retrying with exponential backoff
     pub exponential_retry_max: Duration,
+
+    // Measurements variable to keep track of execution info
+    pub measurements: Measurements,
 }
 
 impl PhaseQueenState {
@@ -125,6 +144,7 @@ impl PhaseQueenState {
             member_ids: config.members.clone(),
             exponential_retry_base: config.exponential_retry_base,
             exponential_retry_max: config.exponential_retry_max,
+            measurements: Measurements::new(),
         }
     }
 
@@ -160,6 +180,23 @@ impl PhaseQueenState {
         }
         
         true
+    }
+
+    pub fn set_message_sent(&mut self) {
+        self.measurements.n_messaggi_inviati += 1;
+    }
+
+    pub fn set_block_new_timestamp(&mut self, block_id: BlockId) {
+        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        self.measurements.convergenza.insert(block_id, current_time);
+    }
+
+    pub fn set_block_commit_timestamp(&mut self, block_id: BlockId) -> u128 {
+        let current_time = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+        let old_time = self.measurements.convergenza.get(&block_id).cloned().expect("Unable to find block_id in map!");
+        self.measurements.convergenza.insert(block_id.clone(), current_time - old_time);
+        info!("Elapsed {} ns for block {} and process {}", current_time - old_time, hex::encode(block_id), self.order);
+        current_time - old_time 
     }
 
 }
