@@ -80,9 +80,6 @@ pub struct PhaseQueenState {
     /// The maximum number of faulty nodes in the network
     pub f: u64,
 
-    /// Timer used to make sure the primary publishes blocks in a timely manner. 
-    pub idle_timeout: Timeout,
-
     /// The base time to use for retrying with exponential backoff
     pub exponential_retry_base: Duration,
 
@@ -126,7 +123,6 @@ impl PhaseQueenState {
             phase: PhaseQueenPhase::Idle,
             f,
             member_ids: config.members.clone(),
-            idle_timeout: Timeout::new(config.idle_timeout),
             exponential_retry_base: config.exponential_retry_base,
             exponential_retry_max: config.exponential_retry_max,
         }

@@ -64,8 +64,6 @@ impl Engine for PhaseQueenEngine {
             &mut phase_queen_state.write(),
         );
 
-        node.start_idle_timeout(&mut phase_queen_state.write());
-
         // TODO: debug, rimuovere poi
         let mut timestamp_log = time::Instant::now();
 
@@ -85,7 +83,7 @@ impl Engine for PhaseQueenEngine {
             block_publishing_ticker.tick(|| node.try_publish(state));
 
             if time::Instant::now().duration_since(timestamp_log) > time::Duration::from_secs(5) {
-                info!("My state: {:?}", state);
+                info!("My state: {}", state);
                 timestamp_log = time::Instant::now();
             }
         }

@@ -41,16 +41,6 @@ impl PhaseQueenNode {
         n
     }
 
-    /// Check to see if the idle timeout has expired
-    pub fn check_idle_timeout_expired(&mut self, state: &mut PhaseQueenState) -> bool {
-        state.idle_timeout.check_expired()
-    }
-
-    /// Start the idle timeout
-    pub fn start_idle_timeout(&self, state: &mut PhaseQueenState) {
-        state.idle_timeout.start();
-    }
-
     pub fn cancel_block(&mut self) {
         debug!("Canceling block");
         match self.service.cancel_block() {
@@ -198,8 +188,6 @@ impl PhaseQueenNode {
     // ---------- Methods for handling state changes ----------
 
     pub fn handle_block_new(&mut self, block_id: BlockId, state: &mut PhaseQueenState) {
-        state.idle_timeout.stop();
-
         state.switch_phase(PhaseQueenPhase::Exchange);
 
         state.decision_block = block_id;
@@ -272,7 +260,6 @@ impl PhaseQueenNode {
         }
 
         state.switch_phase(PhaseQueenPhase::Idle);
-        state.idle_timeout.start();
     }
 
 }
